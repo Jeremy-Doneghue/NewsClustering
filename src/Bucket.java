@@ -1,18 +1,26 @@
+import no.uib.cipr.matrix.Vector;
+import no.uib.cipr.matrix.sparse.SparseVector;
+
+import java.util.LinkedList;
+
 public class Bucket implements IBucket{
 
-    // Vector property vec
+    private SparseVector clusterVector;
 
-    // Sub-document clusterer
+    private LinkedList<Document> docs;
 
-    // Vector comparison function cosine similarity
+    public Bucket(SparseVector clusterVector) {
+        this.clusterVector = clusterVector;
+        docs = new LinkedList<>();
+    }
 
     public double compareVector(Document d) {
 
-        // Return vec.dot(d.getVector) / (a.mag * d.mag)
-        return 0.0; //TODO not this
+        SparseVector dv = d.getFeatureVector();
+        return clusterVector.dot(d.getFeatureVector()) / (clusterVector.norm(Vector.Norm.Two) * dv.norm(Vector.Norm.Two));
     }
-
+    
     public void addDocument(Document d) {
-        // sub clusterer.add
+        docs.add(d);
     }
 }

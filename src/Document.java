@@ -1,3 +1,4 @@
+import no.uib.cipr.matrix.sparse.SparseVector;
 import sun.jvm.hotspot.oops.Instance;
 
 import java.util.HashMap;
@@ -10,7 +11,7 @@ public class Document {
     private HashMap<String, Integer> bagOfWords;
     private double highestFrequency;
 
-    // Feature vector (MTJ Sparse Vector)
+    SparseVector fv;
 
     public Document(HashMap<String, Integer> bow) {
 
@@ -26,13 +27,13 @@ public class Document {
         highestFrequency = max;
     }
 
-    public void setFeatureVector() { // Takes sparsevector
-
+    public void setFeatureVector(SparseVector v) { // Takes sparsevector
+        this.fv = v;
     }
 
-    //public SparseVector getVector() {
-        //return this.vector
-    //}
+    public SparseVector getFeatureVector() {
+        return this.fv;
+    }
 
     // Return the feature vector as a weka instance for use in simplekmeans
     public Instance getInstance() {
@@ -50,4 +51,5 @@ public class Document {
     }
 
     public boolean containsWord(String word) { return bagOfWords.containsKey(word); }
+
 }

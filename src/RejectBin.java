@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -22,12 +23,12 @@ public class RejectBin implements IBucket {
         }
     }
 
-    public int numItems() {
+    public int getSize() {
         return this.newItemPointer;
     }
 
     public Document[] getDocuments() {
-        return rejectList;
+        return Arrays.copyOf(rejectList, newItemPointer);
     }
 
     public boolean isFull() {

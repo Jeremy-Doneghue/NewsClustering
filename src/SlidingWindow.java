@@ -9,6 +9,10 @@ public class SlidingWindow {
         window = new Document[size];
     }
 
+    public SlidingWindow(Document[] docs) {
+        window = docs;
+    }
+
     public void addDocument(Document d) {
         window[insertPoint] = d;
         insertPoint = (insertPoint + 1) % window.length;
