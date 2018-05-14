@@ -1,38 +1,36 @@
 import no.uib.cipr.matrix.sparse.SparseVector;
 import sun.jvm.hotspot.oops.Instance;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import javax.print.Doc;
+import java.util.*;
 
 public class Document {
 
-    private HashMap<String, Integer> bagOfWords;
-    private double highestFrequency;
+    private final Hashtable<String, Integer> bagOfWords;
+    private final double highestWordCount;
 
-    SparseVector fv;
+    private SparseVector featureVector;
 
-    public Document(HashMap<String, Integer> bow) {
+    public Document(final Hashtable<String, Integer> bow) {
 
         this.bagOfWords = bow;
 
         Iterator<Map.Entry<String,Integer>> it = bagOfWords.entrySet().iterator();
-        double max = 0;
+        int max = 0;
         while (it.hasNext()) {
             int curr = it.next().getValue();
             if (curr > max)
-                max = (double)curr;
+                max = curr;
         }
-        highestFrequency = max;
+        highestWordCount = (double)max;
     }
 
-    public void setFeatureVector(SparseVector v) { // Takes sparsevector
-        this.fv = v;
+    public void setFeatureVector(final SparseVector v) { // Takes sparsevector
+        this.featureVector = v;
     }
 
     public SparseVector getFeatureVector() {
-        return this.fv;
+        return this.featureVector;
     }
 
     // Return the feature vector as a weka instance for use in simplekmeans
@@ -45,11 +43,11 @@ public class Document {
         return bagOfWords.keySet();
     }
 
-    public double getTFFor(String word) {
+    public double getTFFor(final String word) {
         int wordFreq = bagOfWords.getOrDefault(word, 0);
-        return 0.5 + (0.5 * (wordFreq / highestFrequency));
+        return 0.5 + (0.5 * (wordFreq / highestWordCount));
     }
 
-    public boolean containsWord(String word) { return bagOfWords.containsKey(word); }
+    public boolean containsWord(final String word) { return bagOfWords.containsKey(word); }
 
 }

@@ -1,4 +1,6 @@
 public interface IBucket {
 
-    public void addDocument(Document d);
+    void addDocument(final Document d);
+    Document[] getDocuments();
+    int size();
 }

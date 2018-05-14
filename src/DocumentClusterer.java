@@ -1,61 +1,63 @@
-import no.uib.cipr.matrix.*;
 import no.uib.cipr.matrix.sparse.SparseVector;
-import weka.core.*;
+import sun.plugin2.message.BestJREAvailableMessage;
 
 import java.util.*;
 
 
 public class DocumentClusterer {
 
-    Bucket[] buckets;
-    int numBuckets = 4;
-    RejectBin bin;
-    double similarityThresh;
-    int reclusterThreshold;
+    private Bucket[] buckets;
+    private FeatureSpace featureSpace;
+    private RejectBucket bin;
 
-    FeatureSpace featureSpace;
+    private final double similarityThreshold;
+    private final int reclusterThreshold;
+    private final int numberOfBuckets;
 
-    SlidingWindow docWindow;
+    private final SlidingWindow<Document> documentSlidingWindow;
 
-    public DocumentClusterer(Document[] documents, double similarityThresh, int reclusterThreshold) {
+    public DocumentClusterer(final Document[] documents, final double similarityThreshold, final int reclusterThreshold, final int numberOfBuckets) {
 
         this.reclusterThreshold = reclusterThreshold;
-        this.similarityThresh = similarityThresh;
-        docWindow = new SlidingWindow(documents);
+        this.similarityThreshold = similarityThreshold;
+        this.numberOfBuckets = numberOfBuckets;
 
+        documentSlidingWindow = new SlidingWindow<>(documents);
         cluster();
     }
 
-    private void putDocInBucket(Document d) {
+    private void putDocInBucket(final Document d) {
 
         IBucket bestMatch = bin;
         double bestValue = 0.0;
-        for (Bucket b : buckets)
-            // Compare document.vector using bucket.getsimilarity
-            // if > bestValue AND > simthresh
-                // BestMatch = bucket
-                // Bestvalue = that
+        for (Bucket b : buckets) {
+            double similarity = b.getSimilarityFor(d);
+            if (similarity > bestValue && similarity > similarityThreshold) {
+                bestMatch = b;
+                bestValue = similarity;
+            }
+        }
 
         bestMatch.addDocument(d);
 
         if (bin.isFull()) {
-            //cluster();
+            cluster();
         }
     }
 
-    public void addDocument(Document d) {
+    public void addDocument(final Document d) {
 
         d.setFeatureVector(generateFeatureVectorFor(featureSpace, d));
-        docWindow.addDocument(d);
+        documentSlidingWindow.add(d);
         putDocInBucket(d);
     }
 
     private void cluster() {
 
         // Append window and bin document arrays
-        Document[] docs = new Document[docWindow.getSize() + bin.getSize()];
-        System.arraycopy(docWindow.getDocuments(), 0, docs, 0, docWindow.getSize());
-        System.arraycopy(bin.getDocuments(), 0, docs, docWindow.getSize(), bin.getSize());
+        Document[] docs = new Document[documentSlidingWindow.size() + bin.size()];
+        System.arraycopy(documentSlidingWindow.getDocuments(), 0, docs, 0, documentSlidingWindow.size());
+        System.arraycopy(bin.getDocuments(), 0, docs, documentSlidingWindow.size(), bin.size());
         featureSpace = generateFeatureSpace(docs);
 
         for (Document d : docs) {
@@ -64,39 +66,40 @@ public class DocumentClusterer {
         // TODO: do kmeans
 
         // create buckets
-        buckets = new Bucket[numBuckets];
+        buckets = new Bucket[numberOfBuckets];
+        bin = new RejectBucket(reclusterThreshold);
     }
 
-    private SparseVector generateFeatureVectorFor(FeatureSpace s, Document d) {
+    private SparseVector generateFeatureVectorFor(final FeatureSpace s, final Document d) {
 
-        SparseVector out = new SparseVector(s.table.size());
+        SparseVector featureVector = new SparseVector(s.table.size());
         for (String w : d.getWords()) {
             if (s.table.containsKey(w)) {
                 FeatureSpace.IndexIDF inst = s.table.get(w);
-                out.add(inst.index, inst.idf);
+                featureVector.add(inst.index, d.getTFFor(w) * inst.idf);
             }
         }
 
-        return out;
+        return featureVector;
     }
 
-    private FeatureSpace generateFeatureSpace(Document[] docs) {
+    private FeatureSpace generateFeatureSpace(final Document[] docs) {
 
-        FeatureSpace out = new FeatureSpace();
+        FeatureSpace featureSpace = new FeatureSpace();
 
         int counter = 0;
         for (Document d : docs) {
             for (String word : d.getWords()) {
-                if (!out.table.containsKey(word)) {
-                    out.addInstance(word, counter, idfOfWord(word, docs));
+                if (!featureSpace.table.containsKey(word)) {
+                    featureSpace.addFeature(word, counter, idfOfWord(word, docs));
                     counter++;
                 }
             }
         }
-        return out;
+        return featureSpace;
     }
 
-    public double idfOfWord(String word, Document[] docs) {
+    public double idfOfWord(final String word, final Document[] docs) {
 
         double occurrenceCounter = (double)Arrays.stream(docs).filter(n -> n.containsWord(word)).count() + 1.0;
         double N = (double) docs.length;

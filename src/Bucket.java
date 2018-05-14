@@ -1,26 +1,37 @@
 import no.uib.cipr.matrix.Vector;
 import no.uib.cipr.matrix.sparse.SparseVector;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.List;
 
-public class Bucket implements IBucket{
+public class Bucket implements IBucket {
 
-    private SparseVector clusterVector;
+    private final SparseVector clusterVector;
+    private final List<Document> documents;
 
-    private LinkedList<Document> docs;
-
-    public Bucket(SparseVector clusterVector) {
+    public Bucket(final SparseVector clusterVector) {
         this.clusterVector = clusterVector;
-        docs = new LinkedList<>();
+        documents = new ArrayList<>();
     }
 
-    public double compareVector(Document d) {
+    public double getSimilarityFor(final Document d) {
 
         SparseVector dv = d.getFeatureVector();
         return clusterVector.dot(d.getFeatureVector()) / (clusterVector.norm(Vector.Norm.Two) * dv.norm(Vector.Norm.Two));
     }
-    
-    public void addDocument(Document d) {
-        docs.add(d);
+
+    @Override
+    public void addDocument(final Document d) {
+        documents.add(d);
+    }
+
+    @Override
+    public Document[] getDocuments() {
+        return documents.toArray(new Document[0]);
+    }
+
+    @Override
+    public int size() {
+        return documents.size();
     }
 }

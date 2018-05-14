@@ -6,10 +6,10 @@ public class FeatureSpace {
 
     public class IndexIDF {
 
-        public int index;
-        public double idf;
+        public final int index;
+        public final double idf;
 
-        public IndexIDF(int index, double idf) {
+        public IndexIDF(final int index, final double idf) {
             this.index = index;
             this.idf = idf;
         }
@@ -19,7 +19,7 @@ public class FeatureSpace {
         table = new Hashtable<>();
     }
 
-    public void addInstance(String word, int index, double idf) {
+    public void addFeature(final String word, final int index, final double idf) {
         table.put(word, new IndexIDF(index, idf));
     }
 }
