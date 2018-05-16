@@ -1,6 +1,8 @@
+import java.util.List;
+
 public interface IBucket {
 
     void addDocument(final Document d);
-    Document[] getDocuments();
+    List<Document> getDocuments();
     int size();
 }

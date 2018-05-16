@@ -26,8 +26,8 @@ public class Bucket implements IBucket {
     }
 
     @Override
-    public Document[] getDocuments() {
-        return documents.toArray(new Document[0]);
+    public List<Document> getDocuments() {
+        return documents;
     }
 
     @Override

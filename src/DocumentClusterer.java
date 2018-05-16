@@ -1,6 +1,7 @@
 import no.uib.cipr.matrix.sparse.SparseVector;
 import sun.plugin2.message.BestJREAvailableMessage;
 
+import javax.print.Doc;
 import java.util.*;
 
 
@@ -55,10 +56,9 @@ public class DocumentClusterer {
     private void cluster() {
 
         // Append window and bin document arrays
-        Document[] docs = new Document[documentSlidingWindow.size() + bin.size()];
-        System.arraycopy(documentSlidingWindow.getDocuments(), 0, docs, 0, documentSlidingWindow.size());
-        System.arraycopy(bin.getDocuments(), 0, docs, documentSlidingWindow.size(), bin.size());
-        featureSpace = generateFeatureSpace(docs);
+        Set<Document> docs = new HashSet<>(documentSlidingWindow);
+        docs.addAll(bin.getDocuments());
+        featureSpace = generateFeatureSpace(new ArrayList<>(docs));
 
         for (Document d : docs) {
             d.setFeatureVector(generateFeatureVectorFor(featureSpace, d));
@@ -72,10 +72,11 @@ public class DocumentClusterer {
 
     private SparseVector generateFeatureVectorFor(final FeatureSpace s, final Document d) {
 
-        SparseVector featureVector = new SparseVector(s.table.size());
+        SparseVector featureVector = new SparseVector(s.size());
+
         for (String w : d.getWords()) {
-            if (s.table.containsKey(w)) {
-                FeatureSpace.IndexIDF inst = s.table.get(w);
+            if (s.containsWord(w)) {
+                FeatureSpace.IndexIDF inst = s.getForWord(w);
                 featureVector.add(inst.index, d.getTFFor(w) * inst.idf);
             }
         }
@@ -83,14 +84,14 @@ public class DocumentClusterer {
         return featureVector;
     }
 
-    private FeatureSpace generateFeatureSpace(final Document[] docs) {
+    private FeatureSpace generateFeatureSpace(List<Document> docs) {
 
         FeatureSpace featureSpace = new FeatureSpace();
 
         int counter = 0;
         for (Document d : docs) {
             for (String word : d.getWords()) {
-                if (!featureSpace.table.containsKey(word)) {
+                if (!featureSpace.containsWord(word)) {
                     featureSpace.addFeature(word, counter, idfOfWord(word, docs));
                     counter++;
                 }
@@ -99,10 +100,10 @@ public class DocumentClusterer {
         return featureSpace;
     }
 
-    public double idfOfWord(final String word, final Document[] docs) {
+    public double idfOfWord(final String word, final List<Document> docs) {
 
-        double occurrenceCounter = (double)Arrays.stream(docs).filter(n -> n.containsWord(word)).count() + 1.0;
-        double N = (double) docs.length;
+        double occurrenceCounter = (double)docs.stream().filter(n -> n.containsWord(word)).count() + 1.0;
+        double N = (double) docs.size();
 
         return Math.log(N / occurrenceCounter);
     }

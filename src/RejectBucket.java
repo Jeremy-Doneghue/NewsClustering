@@ -2,32 +2,32 @@ import java.util.*;
 
 public class RejectBucket implements IBucket {
 
-    private Document[] rejects;
-    private int insertIndex = 0;
+    private final List<Document> rejects;
+    private final int capacity;
 
     public RejectBucket(final int capacity) {
-        rejects = new Document[capacity];
+        rejects = new ArrayList<>();
+        this.capacity = capacity;
     }
 
     @Override
     public void addDocument(final Document d) {
-
-        if (insertIndex < rejects.length) {
-            rejects[insertIndex++] = d;
+        if (rejects.size() < capacity) {
+            rejects.add(d);
         }
     }
 
     @Override
     public int size() {
-        return this.insertIndex;
+        return rejects.size();
     }
 
     @Override
-    public Document[] getDocuments() {
-        return Arrays.copyOf(rejects, insertIndex);
+    public List<Document> getDocuments() {
+        return rejects;
     }
 
     public boolean isFull() {
-        return insertIndex >= rejects.length;
+        return rejects.size() >= capacity;
     }
 }

@@ -6,12 +6,12 @@ import java.util.*;
 
 public class Document {
 
-    private final Hashtable<String, Integer> bagOfWords;
+    private final Map<String, Integer> bagOfWords;
     private final double highestWordCount;
 
     private SparseVector featureVector;
 
-    public Document(final Hashtable<String, Integer> bow) {
+    public Document(final Map<String, Integer> bow) {
 
         this.bagOfWords = bow;
 
@@ -50,4 +50,16 @@ public class Document {
 
     public boolean containsWord(final String word) { return bagOfWords.containsKey(word); }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Document)) return false;
+        Document otherDocument = (Document)obj;
+        return this.bagOfWords.equals(otherDocument.bagOfWords);
+    }
+
+    @Override
+    public int hashCode() {
+        return bagOfWords.hashCode();
+    }
 }
