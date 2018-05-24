@@ -1,5 +1,7 @@
+import no.uib.cipr.matrix.VectorEntry;
 import no.uib.cipr.matrix.sparse.SparseVector;
-import sun.jvm.hotspot.oops.Instance;
+import weka.core.Instance;
+import weka.core.SparseInstance;
 
 import javax.print.Doc;
 import java.util.*;
@@ -36,7 +38,12 @@ public class Document {
     // Return the feature vector as a weka instance for use in simplekmeans
     public Instance getInstance() {
 
-        return null;
+        SparseInstance si = new SparseInstance(featureVector.size());
+        for (VectorEntry e : featureVector) {
+            si.setValueSparse(e.index(), e.get());
+        }
+
+        return si;
     }
 
     public Set<String> getWords() {

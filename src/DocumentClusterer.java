@@ -1,5 +1,9 @@
 import no.uib.cipr.matrix.sparse.SparseVector;
 import sun.plugin2.message.BestJREAvailableMessage;
+import weka.clusterers.SimpleKMeans;
+import weka.core.Attribute;
+import weka.core.Instance;
+import weka.core.Instances;
 
 import javax.print.Doc;
 import java.util.*;
@@ -7,35 +11,41 @@ import java.util.*;
 
 public class DocumentClusterer {
 
-    private Bucket[] buckets;
-    private FeatureSpace featureSpace;
-    private RejectBucket bin;
+    protected Bucket[] buckets;
+    protected FeatureSpace featureSpace;
+    protected RejectBucket bin;
 
     private final double similarityThreshold;
     private final int reclusterThreshold;
     private final int numberOfBuckets;
+    private final int clusterLevel;
 
     private final SlidingWindow<Document> documentSlidingWindow;
 
-    public DocumentClusterer(final Document[] documents, final double similarityThreshold, final int reclusterThreshold, final int numberOfBuckets) {
+    public DocumentClusterer(final Document[] documents, final double similarityThreshold, final int reclusterThreshold, final int numberOfBuckets, final int clusterLevel) {
 
         this.reclusterThreshold = reclusterThreshold;
         this.similarityThreshold = similarityThreshold;
         this.numberOfBuckets = numberOfBuckets;
+        this.clusterLevel = clusterLevel;
 
-        documentSlidingWindow = new SlidingWindow<>(documents);
+        documentSlidingWindow = new SlidingWindow<Document>(documents);
+
         cluster();
     }
 
-    private void putDocInBucket(final Document d) {
+    protected int putDocInBucket(final Document d) {
 
         IBucket bestMatch = bin;
+        int index = -1;
         double bestValue = 0.0;
-        for (Bucket b : buckets) {
+        for (int i = 0; i < numberOfBuckets; i++) {
+            Bucket b = buckets[i];
             double similarity = b.getSimilarityFor(d);
             if (similarity > bestValue && similarity > similarityThreshold) {
                 bestMatch = b;
                 bestValue = similarity;
+                index = i;
             }
         }
 
@@ -44,6 +54,8 @@ public class DocumentClusterer {
         if (bin.isFull()) {
             cluster();
         }
+
+        return index;
     }
 
     public void addDocument(final Document d) {
@@ -53,21 +65,61 @@ public class DocumentClusterer {
         putDocInBucket(d);
     }
 
-    private void cluster() {
+    protected void cluster() {
 
         // Append window and bin document arrays
-        Set<Document> docs = new HashSet<>(documentSlidingWindow);
-        docs.addAll(bin.getDocuments());
-        featureSpace = generateFeatureSpace(new ArrayList<>(docs));
+        Set<Document> docset = new HashSet<>(documentSlidingWindow);
+        docset.addAll(bin.getDocuments());
+
+        ArrayList<Document> docs = new ArrayList<>(docset);
+        featureSpace = generateFeatureSpace(docs);
 
         for (Document d : docs) {
             d.setFeatureVector(generateFeatureVectorFor(featureSpace, d));
         }
-        // TODO: do kmeans
+
+        SimpleKMeans clusterer = new SimpleKMeans();
+
+        ArrayList<Attribute> atts = new ArrayList<>(featureSpace.size());
+        for (int i = 0; i < featureSpace.size(); i++)
+            atts.add(new Attribute("a" + i));
+
+        Instances instances = new Instances("instance", atts, documentSlidingWindow.size() + bin.size());
+        for (Document d : docs)
+            instances.add(d.getInstance());
+
+        try {
+            clusterer.setNumClusters(numberOfBuckets);
+            clusterer.buildClusterer(instances);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         // create buckets
         buckets = new Bucket[numberOfBuckets];
+        Instances centroids = clusterer.getClusterCentroids();
+        for (int i = 0; i < centroids.numInstances(); i++) {
+            SparseVector v = new SparseVector(featureSpace.size());
+
+            Instance inst = centroids.get(i);
+            for (int j = 0; j < inst.numAttributes(); j++) {
+                double value = inst.value(j);
+                if (value != 0.0)
+                    v.add(i, value);
+            }
+            buckets[i] = new Bucket(v);
+        }
+
         bin = new RejectBucket(reclusterThreshold);
+
+        for (Document d : docs) {
+            putDocInBucket(d);
+        }
+
+        if (clusterLevel > 0) {
+            for (Bucket b : buckets)
+                b.initialiseSecondLevel(similarityThreshold, reclusterThreshold, numberOfBuckets, clusterLevel - 1);
+        }
     }
 
     private SparseVector generateFeatureVectorFor(final FeatureSpace s, final Document d) {

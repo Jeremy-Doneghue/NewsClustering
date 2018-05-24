@@ -9,5 +9,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="moa" level="project" />
     <orderEntry type="library" name="mtj" level="project" />
+    <orderEntry type="library" name="weka" level="project" />
   </component>
 </module>

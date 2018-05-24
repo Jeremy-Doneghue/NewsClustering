@@ -8,10 +8,16 @@ public class Bucket implements IBucket {
 
     private final SparseVector clusterVector;
     private final List<Document> documents;
+    private DocumentClusterer subClusterer;
 
     public Bucket(final SparseVector clusterVector) {
         this.clusterVector = clusterVector;
         documents = new ArrayList<>();
+    }
+
+    public void initialiseSecondLevel(final double similarityThreshold, final int reclusterThreshold, final int numberOfBuckets, final int clusterLevel) {
+
+        subClusterer = new DocumentClusterer((Document[]) documents.toArray(), similarityThreshold, reclusterThreshold, numberOfBuckets, clusterLevel);
     }
 
     public double getSimilarityFor(final Document d) {
@@ -23,6 +29,9 @@ public class Bucket implements IBucket {
     @Override
     public void addDocument(final Document d) {
         documents.add(d);
+
+        if (subClusterer != null)
+            subClusterer.addDocument(d);
     }
 
     @Override
