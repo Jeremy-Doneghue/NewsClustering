@@ -50,6 +50,7 @@ public class DocumentClusterer {
         }
 
         bestMatch.addDocument(d);
+        System.out.println("Put " + d.toString() + "\n into bucket: " + index);
 
         if (bin.isFull()) {
             cluster();
@@ -69,7 +70,12 @@ public class DocumentClusterer {
 
         // Append window and bin document arrays
         Set<Document> docset = new HashSet<>(documentSlidingWindow);
-        docset.addAll(bin.getDocuments());
+        int binSize = 0;
+        // On the first clustering we have no previous reject bin, so need to handle especially
+        if (bin != null) {
+            docset.addAll(bin.getDocuments());
+            binSize = bin.size();
+        }
 
         ArrayList<Document> docs = new ArrayList<>(docset);
         featureSpace = generateFeatureSpace(docs);
@@ -79,12 +85,13 @@ public class DocumentClusterer {
         }
 
         SimpleKMeans clusterer = new SimpleKMeans();
+        clusterer.setDebug(true);
 
         ArrayList<Attribute> atts = new ArrayList<>(featureSpace.size());
         for (int i = 0; i < featureSpace.size(); i++)
             atts.add(new Attribute("a" + i));
 
-        Instances instances = new Instances("instance", atts, documentSlidingWindow.size() + bin.size());
+        Instances instances = new Instances("instance", atts, documentSlidingWindow.size() + binSize);
         for (Document d : docs)
             instances.add(d.getInstance());
 

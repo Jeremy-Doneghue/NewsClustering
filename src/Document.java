@@ -10,11 +10,13 @@ public class Document {
 
     private final Map<String, Integer> bagOfWords;
     private final double highestWordCount;
+    private final String name;
 
     private SparseVector featureVector;
 
-    public Document(final Map<String, Integer> bow) {
+    public Document(final Map<String, Integer> bow, String name) {
 
+        this.name = name;
         this.bagOfWords = bow;
 
         Iterator<Map.Entry<String,Integer>> it = bagOfWords.entrySet().iterator();
@@ -40,7 +42,7 @@ public class Document {
 
         SparseInstance si = new SparseInstance(featureVector.size());
         for (VectorEntry e : featureVector) {
-            si.setValueSparse(e.index(), e.get());
+            si.setValue(e.index(), e.get());
         }
 
         return si;
@@ -68,5 +70,10 @@ public class Document {
     @Override
     public int hashCode() {
         return bagOfWords.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return this.name;
     }
 }

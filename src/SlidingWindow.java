@@ -4,8 +4,6 @@ public class SlidingWindow<E> extends AbstractCollection<E> {
 
     private final E[] window;
     private int insertIndex = 0;
-    private boolean isFull = false;
-
 
     public SlidingWindow(final E[] items) {
         window = items;
@@ -16,7 +14,6 @@ public class SlidingWindow<E> extends AbstractCollection<E> {
         window[insertIndex++] = item;
         if (insertIndex >= window.length) {
             insertIndex = 0;
-            isFull = true;
         }
         return true;
     }
@@ -30,11 +27,7 @@ public class SlidingWindow<E> extends AbstractCollection<E> {
     }
 
     public E[] getDocuments() {
-        if (isFull) {
-            return window.clone();
-        } else {
-            return Arrays.copyOf(window, insertIndex);
-        }
+        return window;
     }
 
     @Override
@@ -44,7 +37,7 @@ public class SlidingWindow<E> extends AbstractCollection<E> {
 
     @Override
     public int size() {
-        return isFull ? window.length : insertIndex;
+        return window.length;
     }
 
     private class WindowIterator implements Iterator<E> {
