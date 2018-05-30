@@ -75,14 +75,14 @@ public class Main {
 
 
 
-        int initialWindowSize = 10;
+        int initialWindowSize = 300;
         Document[] intialDocs = new Document[initialWindowSize];
         //TODO: check initial dataset is big enough
         for (int i = 0; i < initialWindowSize; i++) {
             intialDocs[i] = fullDataSet.get(i);
         }
 
-        DocumentClusterer c = new DocumentClusterer(intialDocs, 0.04, 200, 4, 1);
+        DocumentClusterer c = new DocumentClusterer(intialDocs, 0.04, 300, 4, 1);
 
         for (int i = initialWindowSize; i < fullDataSet.size(); i++) {
             c.addDocument(fullDataSet.get(i));

@@ -40,7 +40,7 @@ public class Document {
     // Return the feature vector as a weka instance for use in simplekmeans
     public Instance getInstance() {
 
-        SparseInstance si = new SparseInstance(featureVector.size());
+        SparseInstance si = new MySparseInstance(featureVector.size());
         for (VectorEntry e : featureVector) {
             si.setValue(e.index(), e.get());
         }

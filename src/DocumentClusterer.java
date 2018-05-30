@@ -41,6 +41,8 @@ public class DocumentClusterer {
         double bestValue = 0.0;
         for (int i = 0; i < numberOfBuckets; i++) {
             Bucket b = buckets[i];
+            if (b == null)
+                System.out.println("Null bucket on cluster-level" + this.clusterLevel);
             double similarity = b.getSimilarityFor(d);
             if (similarity > bestValue && similarity > similarityThreshold) {
                 bestMatch = b;
@@ -50,9 +52,9 @@ public class DocumentClusterer {
         }
 
         bestMatch.addDocument(d);
-        System.out.println("Put " + d.toString() + "\n into bucket: " + index);
 
         if (bin.isFull()) {
+            System.out.println("Re-cluster triggered at level " + this.clusterLevel);
             cluster();
         }
 
@@ -119,9 +121,13 @@ public class DocumentClusterer {
 
         bin = new RejectBucket(reclusterThreshold);
 
+        int[] documentDistribution = new int[numberOfBuckets + 1];
         for (Document d : docs) {
-            putDocInBucket(d);
+            int dest = putDocInBucket(d);
+            documentDistribution[dest + 1]++;
         }
+        System.out.println("Distribution of documents into bins. Bin 0 is reject bin.");
+        System.out.println(Arrays.toString(documentDistribution));
 
         if (clusterLevel > 0) {
             for (Bucket b : buckets)
