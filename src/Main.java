@@ -82,7 +82,16 @@ public class Main {
             intialDocs[i] = fullDataSet.get(i);
         }
 
-        DocumentClusterer c = new DocumentClusterer(intialDocs, 0.04, 300, 4, 1);
+        ConfigurationContainer config = new ConfigurationContainer(
+                0.04,
+                0.01,
+                300,
+                100,
+                10,
+                4
+        );
+
+        DocumentClusterer c = new DocumentClusterer(intialDocs, 0.01, 300, 10, 4, 1);
 
         for (int i = initialWindowSize; i < fullDataSet.size(); i++) {
             c.addDocument(fullDataSet.get(i));

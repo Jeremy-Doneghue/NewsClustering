@@ -17,7 +17,9 @@ public class Bucket implements IBucket {
 
     public void initialiseSecondLevel(final double similarityThreshold, final int reclusterThreshold, final int numberOfBuckets, final int clusterLevel) {
 
-        subClusterer = new DocumentClusterer(documents.toArray(new Document[0]), similarityThreshold, reclusterThreshold, numberOfBuckets, clusterLevel);
+        Document[] docs = documents.toArray(new Document[0]);
+        if (docs.length >= numberOfBuckets)
+            subClusterer = new DocumentClusterer(docs, similarityThreshold, reclusterThreshold, numberOfBuckets, 0, clusterLevel);
     }
 
     public double getSimilarityFor(final Document d) {
