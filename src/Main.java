@@ -83,15 +83,16 @@ public class Main {
         }
 
         ConfigurationContainer config = new ConfigurationContainer(
-                0.04,
                 0.01,
-                300,
+                0.001,
+                500,
                 100,
                 10,
                 4
         );
 
-        DocumentClusterer c = new DocumentClusterer(intialDocs, 0.01, 300, 10, 4, 1);
+        //DocumentClusterer c = new DocumentClusterer(intialDocs, 0.01, 300, 10, 4, 1);
+        DocumentClusterer c = new DocumentClusterer(intialDocs, config, 1);
 
         for (int i = initialWindowSize; i < fullDataSet.size(); i++) {
             c.addDocument(fullDataSet.get(i));
