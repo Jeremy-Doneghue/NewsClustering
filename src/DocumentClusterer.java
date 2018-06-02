@@ -19,8 +19,26 @@ public class DocumentClusterer {
     private final int reclusterThreshold;
     private final int numberOfBuckets;
     private final int clusterLevel;
+    private boolean documentsAddedSinceLastCluster = false;
+
+    private ConfigurationContainer config;
 
     private final SlidingWindow<Document> documentSlidingWindow;
+
+    public DocumentClusterer(final Document[] documents, ConfigurationContainer config, final int clusterLevel) {
+        this.reclusterThreshold = config.reclusterThreshold;
+        this.similarityThreshold = config.similarityThreshold;
+        this.numberOfBuckets = config.numberOfBuckets;
+        this.clusterLevel = clusterLevel;
+
+        this.config = config;
+
+        documentSlidingWindow = new SlidingWindow<Document>(documents);
+
+        if (documents.length > numberOfBuckets) {
+            cluster();
+        }
+    }
 
     public DocumentClusterer(final Document[] documents, final double similarityThreshold, final int reclusterThreshold, final int numberOfBuckets, final int clusterLevel) {
 
@@ -31,7 +49,10 @@ public class DocumentClusterer {
 
         documentSlidingWindow = new SlidingWindow<Document>(documents);
 
-        cluster();
+        if (documents.length > numberOfBuckets) {
+            cluster();
+        }
+
     }
 
     protected int putDocInBucket(final Document d) {
@@ -53,7 +74,7 @@ public class DocumentClusterer {
 
         bestMatch.addDocument(d);
 
-        if (bin.isFull()) {
+        if (bin.isFull() && documentsAddedSinceLastCluster) {
             System.out.println("Re-cluster triggered at level " + this.clusterLevel);
             cluster();
         }
@@ -63,12 +84,20 @@ public class DocumentClusterer {
 
     public void addDocument(final Document d) {
 
+        documentsAddedSinceLastCluster = true;
+        if (featureSpace == null) {
+            documentSlidingWindow.add(d);
+            cluster();
+        }
+
         d.setFeatureVector(generateFeatureVectorFor(featureSpace, d));
         documentSlidingWindow.add(d);
         putDocInBucket(d);
     }
 
     protected void cluster() {
+
+        documentsAddedSinceLastCluster = false;
 
         // Append window and bin document arrays
         Set<Document> docset = new HashSet<>(documentSlidingWindow);
@@ -78,6 +107,10 @@ public class DocumentClusterer {
             docset.addAll(bin.getDocuments());
             binSize = bin.size();
         }
+        bin = new RejectBucket(reclusterThreshold);
+
+        if (docset.size() < numberOfBuckets)
+            throw new RuntimeException("docset.size() < numberOfBuckets");
 
         ArrayList<Document> docs = new ArrayList<>(docset);
         featureSpace = generateFeatureSpace(docs);
@@ -119,19 +152,18 @@ public class DocumentClusterer {
             buckets[i] = new Bucket(v);
         }
 
-        bin = new RejectBucket(reclusterThreshold);
+
 
         int[] documentDistribution = new int[numberOfBuckets + 1];
         for (Document d : docs) {
             int dest = putDocInBucket(d);
             documentDistribution[dest + 1]++;
         }
-        System.out.println("Distribution of documents into bins. Bin 0 is reject bin.");
-        System.out.println(Arrays.toString(documentDistribution));
+        System.out.println(this.clusterLevel + ": " + Arrays.toString(documentDistribution));
 
         if (clusterLevel > 0) {
             for (Bucket b : buckets)
-                b.initialiseSecondLevel(similarityThreshold, reclusterThreshold, numberOfBuckets, clusterLevel - 1);
+                b.initialiseSecondLevel(config, clusterLevel - 1);
         }
     }
 
