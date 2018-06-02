@@ -1,15 +1,20 @@
+import moa.cluster.Clustering;
+import moa.clusterers.AbstractClusterer;
+import moa.core.Measurement;
 import no.uib.cipr.matrix.sparse.SparseVector;
+import org.apache.commons.compress.archivers.zip.UnsupportedZipFeatureException;
 import sun.plugin2.message.BestJREAvailableMessage;
 import weka.clusterers.SimpleKMeans;
 import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 
-import javax.print.Doc;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
-public class DocumentClusterer {
+public class DocumentClusterer extends AbstractClusterer {
 
     protected Bucket[] buckets;
     protected FeatureSpace featureSpace;
@@ -153,7 +158,6 @@ public class DocumentClusterer {
         }
 
 
-
         int[] documentDistribution = new int[numberOfBuckets + 1];
         for (Document d : docs) {
             int dest = putDocInBucket(d);
@@ -199,9 +203,76 @@ public class DocumentClusterer {
 
     public double idfOfWord(final String word, final List<Document> docs) {
 
-        double occurrenceCounter = (double)docs.stream().filter(n -> n.containsWord(word)).count() + 1.0;
+        double occurrenceCounter = (double) docs.stream().filter(n -> n.containsWord(word)).count() + 1.0;
         double N = (double) docs.size();
 
         return Math.log(N / occurrenceCounter);
+    }
+
+    public List<String> getMostImportantWordsInBucket(final Bucket b, final int numWords) {
+        if (featureSpace == null || b == null)
+            return new ArrayList<>();
+        //this is the centroid that represents the featureVector of a topic
+        final SparseVector clusterVector = b.getClusterVector();
+
+        final Set<Map.Entry<String, FeatureSpace.IndexIDF>> featureEntrySet = featureSpace.getTable().entrySet();
+        final int numToCollect = Math.min(featureEntrySet.size(), numWords);
+
+        //sorts the words in the feature space by looking up the importance of that word in the bucket's clusterVector
+        //then reduces the stream to the desired number of words, or the size of the feature space if the desired number is too big
+        //then maps the stream to just contain strings (the most important ones).
+        return featureEntrySet.stream().sorted(new Comparator<Map.Entry<String, FeatureSpace.IndexIDF>>() {
+            @Override
+            public int compare(Map.Entry<String, FeatureSpace.IndexIDF> o1, Map.Entry<String, FeatureSpace.IndexIDF> o2) {
+                int index1 = o1.getValue().index;
+                Double clusterVal1 = clusterVector.get(index1);
+                int index2 = o2.getValue().index;
+                Double clusterVal2 = clusterVector.get(index2);
+
+                //we negative so that we get biggest values first
+                return -clusterVal1.compareTo(clusterVal2);
+            }
+        }).limit(numToCollect).map(new Function<Map.Entry<String,FeatureSpace.IndexIDF>, String>() {
+            @Override
+            public String apply(Map.Entry<String, FeatureSpace.IndexIDF> stringIndexIDFEntry) {
+                return stringIndexIDFEntry.getKey();
+            }
+        }).collect(Collectors.toList());
+    }
+
+
+    @Override
+    public void resetLearningImpl() {
+
+    }
+
+    @Override
+    public void trainOnInstanceImpl(com.yahoo.labs.samoa.instances.Instance instance) {
+
+    }
+
+    @Override
+    protected Measurement[] getModelMeasurementsImpl() {
+        return new Measurement[0];
+    }
+
+    @Override
+    public void getModelDescription(StringBuilder stringBuilder, int i) {
+
+    }
+
+    @Override
+    public boolean isRandomizable() {
+        return false;
+    }
+
+    @Override
+    public double[] getVotesForInstance(com.yahoo.labs.samoa.instances.Instance instance) {
+        return new double[0];
+    }
+
+    @Override
+    public Clustering getClusteringResult() {
+        return null;
     }
 }

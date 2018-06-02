@@ -36,6 +36,10 @@ public class Bucket implements IBucket {
             subClusterer.addDocument(d);
     }
 
+    public SparseVector getClusterVector() {
+        return clusterVector;
+    }
+
     @Override
     public List<Document> getDocuments() {
         return documents;
