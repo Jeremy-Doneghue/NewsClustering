@@ -152,7 +152,7 @@ public class DocumentClusterer extends AbstractClusterer {
             for (int j = 0; j < inst.numAttributes(); j++) {
                 double value = inst.value(j);
                 if (value != 0.0)
-                    v.add(i, value);
+                    v.set(j, value);
             }
             buckets[i] = new Bucket(v);
         }
@@ -164,6 +164,11 @@ public class DocumentClusterer extends AbstractClusterer {
             documentDistribution[dest + 1]++;
         }
         System.out.println(this.clusterLevel + ": " + Arrays.toString(documentDistribution));
+
+        //visualise the important words in a cluster
+        for (Bucket b : buckets) {
+            System.out.println(getMostImportantWordsInBucket(b, 5));
+        }
 
         if (clusterLevel > 0) {
             for (Bucket b : buckets)

@@ -75,7 +75,7 @@ public class Main {
 
 
 
-        int initialWindowSize = 300;
+        int initialWindowSize = 10;
         Document[] intialDocs = new Document[initialWindowSize];
         //TODO: check initial dataset is big enough
         for (int i = 0; i < initialWindowSize; i++) {
@@ -87,8 +87,8 @@ public class Main {
                 0.001,
                 500,
                 100,
-                10,
-                4
+                4,
+                2
         );
 
         //DocumentClusterer c = new DocumentClusterer(intialDocs, 0.01, 300, 10, 4, 1);
