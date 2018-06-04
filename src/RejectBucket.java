@@ -30,4 +30,8 @@ public class RejectBucket implements IBucket {
     public boolean isFull() {
         return rejects.size() >= capacity;
     }
+
+    public void clear() {
+        rejects.clear();
+    }
 }

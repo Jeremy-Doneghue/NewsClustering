@@ -16,19 +16,19 @@ import java.util.stream.Collectors;
 
 public class DocumentClusterer extends AbstractClusterer {
 
-    protected Bucket[] buckets;
-    protected FeatureSpace featureSpace;
-    protected RejectBucket bin;
+    private final Bucket[] buckets;
+    private final FeatureSpace featureSpace;
+    private final SlidingWindow<Document> documentSlidingWindow;
+    private final RejectBucket bin;
+
 
     private final double similarityThreshold;
     private final int reclusterThreshold;
     private final int numberOfBuckets;
     private final int clusterLevel;
+
+    private  ConfigurationContainer config;
     private boolean documentsAddedSinceLastCluster = false;
-
-    private ConfigurationContainer config;
-
-    private final SlidingWindow<Document> documentSlidingWindow;
 
     public DocumentClusterer(final Document[] documents, ConfigurationContainer config, final int clusterLevel) {
         this.reclusterThreshold = config.reclusterThreshold;
@@ -39,6 +39,10 @@ public class DocumentClusterer extends AbstractClusterer {
         this.config = config;
 
         documentSlidingWindow = new SlidingWindow<Document>(documents);
+        buckets = new Bucket[numberOfBuckets];
+        bin = new RejectBucket(reclusterThreshold);
+        featureSpace = new FeatureSpace();
+
 
         if (documents.length > numberOfBuckets) {
             cluster();
@@ -53,22 +57,26 @@ public class DocumentClusterer extends AbstractClusterer {
         this.clusterLevel = clusterLevel;
 
         documentSlidingWindow = new SlidingWindow<Document>(documents);
+        buckets = new Bucket[numberOfBuckets];
+        bin = new RejectBucket(reclusterThreshold);
+        featureSpace = new FeatureSpace();
 
         if (documents.length > numberOfBuckets) {
             cluster();
         }
-
     }
 
-    protected int putDocInBucket(final Document d) {
+    private int putDocInBucket(final Document d) {
 
         IBucket bestMatch = bin;
         int index = -1;
         double bestValue = 0.0;
         for (int i = 0; i < numberOfBuckets; i++) {
             Bucket b = buckets[i];
-            if (b == null)
-                System.out.println("Null bucket on cluster-level" + this.clusterLevel);
+            if (b == null) {
+                System.out.println("Null bucket on cluster-level " + clusterLevel);
+                continue;
+            }
             double similarity = b.getSimilarityFor(d);
             if (similarity > bestValue && similarity > similarityThreshold) {
                 bestMatch = b;
@@ -90,38 +98,27 @@ public class DocumentClusterer extends AbstractClusterer {
     public void addDocument(final Document d) {
 
         documentsAddedSinceLastCluster = true;
-        if (featureSpace == null) {
-            documentSlidingWindow.add(d);
-            cluster();
-        }
-
-        d.setFeatureVector(generateFeatureVectorFor(featureSpace, d));
+        d.setFeatureVector(generateFeatureVectorFor(d, featureSpace));
         documentSlidingWindow.add(d);
         putDocInBucket(d);
     }
 
-    protected void cluster() {
+    private void cluster() {
 
         documentsAddedSinceLastCluster = false;
 
         // Append window and bin document arrays
         Set<Document> docset = new HashSet<>(documentSlidingWindow);
-        int binSize = 0;
-        // On the first clustering we have no previous reject bin, so need to handle especially
-        if (bin != null) {
-            docset.addAll(bin.getDocuments());
-            binSize = bin.size();
-        }
-        bin = new RejectBucket(reclusterThreshold);
+        docset.addAll(bin.getDocuments());
 
         if (docset.size() < numberOfBuckets)
             throw new RuntimeException("docset.size() < numberOfBuckets");
 
         ArrayList<Document> docs = new ArrayList<>(docset);
-        featureSpace = generateFeatureSpace(docs);
+        featureSpace.recreate(docs);
 
         for (Document d : docs) {
-            d.setFeatureVector(generateFeatureVectorFor(featureSpace, d));
+            d.setFeatureVector(generateFeatureVectorFor(d, featureSpace));
         }
 
         SimpleKMeans clusterer = new SimpleKMeans();
@@ -131,7 +128,7 @@ public class DocumentClusterer extends AbstractClusterer {
         for (int i = 0; i < featureSpace.size(); i++)
             atts.add(new Attribute("a" + i));
 
-        Instances instances = new Instances("instance", atts, documentSlidingWindow.size() + binSize);
+        Instances instances = new Instances("instance", atts, documentSlidingWindow.size() + bin.size());
         for (Document d : docs)
             instances.add(d.getInstance());
 
@@ -143,7 +140,6 @@ public class DocumentClusterer extends AbstractClusterer {
         }
 
         // create buckets
-        buckets = new Bucket[numberOfBuckets];
         Instances centroids = clusterer.getClusterCentroids();
         for (int i = 0; i < centroids.numInstances(); i++) {
             SparseVector v = new SparseVector(featureSpace.size());
@@ -154,7 +150,7 @@ public class DocumentClusterer extends AbstractClusterer {
                 if (value != 0.0)
                     v.set(j, value);
             }
-            buckets[i] = new Bucket(v);
+            buckets[i] = new Bucket(v, featureSpace);
         }
 
 
@@ -165,18 +161,13 @@ public class DocumentClusterer extends AbstractClusterer {
         }
         System.out.println(this.clusterLevel + ": " + Arrays.toString(documentDistribution));
 
-        //visualise the important words in a cluster
-        for (Bucket b : buckets) {
-            System.out.println(getMostImportantWordsInBucket(b, 5));
-        }
-
         if (clusterLevel > 0) {
             for (Bucket b : buckets)
                 b.initialiseSecondLevel(config, clusterLevel - 1);
         }
     }
 
-    private SparseVector generateFeatureVectorFor(final FeatureSpace s, final Document d) {
+    private SparseVector generateFeatureVectorFor(final Document d, final FeatureSpace s) {
 
         SparseVector featureVector = new SparseVector(s.size());
 
@@ -189,62 +180,6 @@ public class DocumentClusterer extends AbstractClusterer {
 
         return featureVector;
     }
-
-    private FeatureSpace generateFeatureSpace(List<Document> docs) {
-
-        FeatureSpace featureSpace = new FeatureSpace();
-
-        int counter = 0;
-        for (Document d : docs) {
-            for (String word : d.getWords()) {
-                if (!featureSpace.containsWord(word)) {
-                    featureSpace.addFeature(word, counter, idfOfWord(word, docs));
-                    counter++;
-                }
-            }
-        }
-        return featureSpace;
-    }
-
-    public double idfOfWord(final String word, final List<Document> docs) {
-
-        double occurrenceCounter = (double) docs.stream().filter(n -> n.containsWord(word)).count() + 1.0;
-        double N = (double) docs.size();
-
-        return Math.log(N / occurrenceCounter);
-    }
-
-    public List<String> getMostImportantWordsInBucket(final Bucket b, final int numWords) {
-        if (featureSpace == null || b == null)
-            return new ArrayList<>();
-        //this is the centroid that represents the featureVector of a topic
-        final SparseVector clusterVector = b.getClusterVector();
-
-        final Set<Map.Entry<String, FeatureSpace.IndexIDF>> featureEntrySet = featureSpace.getTable().entrySet();
-        final int numToCollect = Math.min(featureEntrySet.size(), numWords);
-
-        //sorts the words in the feature space by looking up the importance of that word in the bucket's clusterVector
-        //then reduces the stream to the desired number of words, or the size of the feature space if the desired number is too big
-        //then maps the stream to just contain strings (the most important ones).
-        return featureEntrySet.stream().sorted(new Comparator<Map.Entry<String, FeatureSpace.IndexIDF>>() {
-            @Override
-            public int compare(Map.Entry<String, FeatureSpace.IndexIDF> o1, Map.Entry<String, FeatureSpace.IndexIDF> o2) {
-                int index1 = o1.getValue().index;
-                Double clusterVal1 = clusterVector.get(index1);
-                int index2 = o2.getValue().index;
-                Double clusterVal2 = clusterVector.get(index2);
-
-                //we negative so that we get biggest values first
-                return -clusterVal1.compareTo(clusterVal2);
-            }
-        }).limit(numToCollect).map(new Function<Map.Entry<String,FeatureSpace.IndexIDF>, String>() {
-            @Override
-            public String apply(Map.Entry<String, FeatureSpace.IndexIDF> stringIndexIDFEntry) {
-                return stringIndexIDFEntry.getKey();
-            }
-        }).collect(Collectors.toList());
-    }
-
 
     @Override
     public void resetLearningImpl() {
