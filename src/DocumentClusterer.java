@@ -1,3 +1,4 @@
+import com.github.javacliparser.IntOption;
 import moa.cluster.Clustering;
 import moa.clusterers.AbstractClusterer;
 import moa.core.Measurement;
@@ -21,16 +22,17 @@ public class DocumentClusterer extends AbstractClusterer {
     private final SlidingWindow<Document> documentSlidingWindow;
     private final RejectBucket bin;
 
-
     private final double similarityThreshold;
     private final int reclusterThreshold;
     private final int numberOfBuckets;
     private final int clusterLevel;
 
+    private boolean hasMadeFirstClustering = false;
     private  ConfigurationContainer config;
-    private boolean documentsAddedSinceLastCluster = false;
 
-    public DocumentClusterer(final Document[] documents, ConfigurationContainer config, final int clusterLevel) {
+    public DocumentClusterer(ConfigurationContainer config, final int clusterLevel) {
+        //TODO: separate initialisation of the data structure from the first cluster()
+//TODO: check capacity is more than the # of buckets
         this.reclusterThreshold = config.reclusterThreshold;
         this.similarityThreshold = config.similarityThreshold;
         this.numberOfBuckets = config.numberOfBuckets;
@@ -38,32 +40,25 @@ public class DocumentClusterer extends AbstractClusterer {
 
         this.config = config;
 
-        documentSlidingWindow = new SlidingWindow<Document>(documents);
+        documentSlidingWindow = new SlidingWindow<Document>(config.slidingWindowCapacity);
         buckets = new Bucket[numberOfBuckets];
         bin = new RejectBucket(reclusterThreshold);
         featureSpace = new FeatureSpace();
-
-
-        if (documents.length > numberOfBuckets) {
-            cluster();
-        }
     }
 
-    public DocumentClusterer(final Document[] documents, final double similarityThreshold, final int reclusterThreshold, final int numberOfBuckets, final int clusterLevel) {
+    public DocumentClusterer(final double similarityThreshold, final int reclusterThreshold, final int numberOfBuckets, final int slidingWindowCapacity, final int clusterLevel) {
 
+        //TODO: check capacity is more than the # of buckets
+        //TODO: add a document sliding window capacity parameter and re-do using moa.Options
         this.reclusterThreshold = reclusterThreshold;
         this.similarityThreshold = similarityThreshold;
         this.numberOfBuckets = numberOfBuckets;
         this.clusterLevel = clusterLevel;
 
-        documentSlidingWindow = new SlidingWindow<Document>(documents);
+        documentSlidingWindow = new SlidingWindow<Document>(slidingWindowCapacity);
         buckets = new Bucket[numberOfBuckets];
         bin = new RejectBucket(reclusterThreshold);
         featureSpace = new FeatureSpace();
-
-        if (documents.length > numberOfBuckets) {
-            cluster();
-        }
     }
 
     private int putDocInBucket(final Document d) {
@@ -74,7 +69,7 @@ public class DocumentClusterer extends AbstractClusterer {
         for (int i = 0; i < numberOfBuckets; i++) {
             Bucket b = buckets[i];
             if (b == null) {
-                System.out.println("Null bucket on cluster-level " + clusterLevel);
+                System.out.println("Null Bucket with index " + i + " at level " + clusterLevel);
                 continue;
             }
             double similarity = b.getSimilarityFor(d);
@@ -85,27 +80,45 @@ public class DocumentClusterer extends AbstractClusterer {
             }
         }
 
-        bestMatch.addDocument(d);
-
-        if (bin.isFull() && documentsAddedSinceLastCluster) {
-            System.out.println("Re-cluster triggered at level " + this.clusterLevel);
-            cluster();
-        }
-
         return index;
+    }
+
+    public void setupClustering(List<Document> initialDocs) {
+
+        if (!hasMadeFirstClustering) {
+            documentSlidingWindow.addAll(initialDocs);
+            cluster();
+            hasMadeFirstClustering = true;
+        }
+    }
+
+    public boolean getHasMadeFirstClustering() {
+        return hasMadeFirstClustering;
     }
 
     public void addDocument(final Document d) {
 
-        documentsAddedSinceLastCluster = true;
-        d.setFeatureVector(generateFeatureVectorFor(d, featureSpace));
+        d.generateFeatureVector(featureSpace);
         documentSlidingWindow.add(d);
-        putDocInBucket(d);
+        int matchIndex = putDocInBucket(d);
+
+        if (matchIndex == -1) {
+            bin.addDocument(d);
+        }
+        else if (buckets[matchIndex] != null) {
+            buckets[matchIndex].addDocument(d);
+        }
+        else {
+            System.err.println("the bucket match was null");
+        }
+
+        if (bin.isFull()) {
+            System.out.println("Re-cluster triggered at level " + this.clusterLevel);
+            cluster();
+        }
     }
 
-    private void cluster() {
-
-        documentsAddedSinceLastCluster = false;
+    public void cluster() {
 
         // Append window and bin document arrays
         Set<Document> docset = new HashSet<>(documentSlidingWindow);
@@ -116,9 +129,10 @@ public class DocumentClusterer extends AbstractClusterer {
 
         ArrayList<Document> docs = new ArrayList<>(docset);
         featureSpace.recreate(docs);
+        bin.clear();
 
         for (Document d : docs) {
-            d.setFeatureVector(generateFeatureVectorFor(d, featureSpace));
+            d.generateFeatureVector(featureSpace);
         }
 
         SimpleKMeans clusterer = new SimpleKMeans();
@@ -150,9 +164,14 @@ public class DocumentClusterer extends AbstractClusterer {
                 if (value != 0.0)
                     v.set(j, value);
             }
-            buckets[i] = new Bucket(v, featureSpace);
-        }
+            if (clusterLevel > 0) {
+                buckets[i] = new Bucket(v, featureSpace, config, clusterLevel - 1);
+            }
+            else {
+                buckets[i] = new Bucket(v, featureSpace);
+            }
 
+        }
 
         int[] documentDistribution = new int[numberOfBuckets + 1];
         for (Document d : docs) {
@@ -160,25 +179,9 @@ public class DocumentClusterer extends AbstractClusterer {
             documentDistribution[dest + 1]++;
         }
         System.out.println(this.clusterLevel + ": " + Arrays.toString(documentDistribution));
-
-        if (clusterLevel > 0) {
-            for (Bucket b : buckets)
-                b.initialiseSecondLevel(config, clusterLevel - 1);
+        for (Bucket b : buckets) {
+            System.out.println(b.toString());
         }
-    }
-
-    private SparseVector generateFeatureVectorFor(final Document d, final FeatureSpace s) {
-
-        SparseVector featureVector = new SparseVector(s.size());
-
-        for (String w : d.getWords()) {
-            if (s.containsWord(w)) {
-                FeatureSpace.IndexIDF inst = s.getForWord(w);
-                featureVector.add(inst.index, d.getTFFor(w) * inst.idf);
-            }
-        }
-
-        return featureVector;
     }
 
     @Override

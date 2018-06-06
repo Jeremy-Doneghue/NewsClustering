@@ -1,15 +1,10 @@
-import moa.clusterers.Clusterer;
-
 import java.io.*;
 import java.nio.file.Files;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
 
 public class Main {
 
-    private static int fileDateComparitor(File f1, File f2) {
+    private static int fileDateComparator(File f1, File f2) {
 
         if (f1.lastModified() > f2.lastModified())
             return 1;
@@ -30,7 +25,7 @@ public class Main {
         LinkedList<Document> fullDataSet = new LinkedList<>();
 
         File[] files = dataDir.listFiles();
-        files = Arrays.stream(files).sorted(Main::fileDateComparitor).toArray(File[]::new);
+        files = Arrays.stream(files).sorted(Main::fileDateComparator).toArray(File[]::new);
 
         for (File f : files) {
 
@@ -75,7 +70,7 @@ public class Main {
 
 
 
-        int initialWindowSize = 10;
+        int initialWindowSize = 50;
         Document[] intialDocs = new Document[initialWindowSize];
         //TODO: check initial dataset is big enough
         for (int i = 0; i < initialWindowSize; i++) {
@@ -83,16 +78,17 @@ public class Main {
         }
 
         ConfigurationContainer config = new ConfigurationContainer(
-                0.01,
-                0.001,
-                500,
+                0.15,
+                0.3,
                 100,
+                50,
                 4,
                 2
         );
 
         //DocumentClusterer c = new DocumentClusterer(intialDocs, 0.01, 300, 10, 4, 1);
-        DocumentClusterer c = new DocumentClusterer(intialDocs, config, 1);
+        DocumentClusterer c = new DocumentClusterer(config, 1);
+        c.setupClustering(intialDocs);
 
         for (int i = initialWindowSize; i < fullDataSet.size(); i++) {
             c.addDocument(fullDataSet.get(i));

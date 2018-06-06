@@ -14,7 +14,7 @@ public class Document {
 
     private SparseVector featureVector;
 
-    public Document(final Map<String, Integer> bow, String name) {
+    public Document(final Map<String, Integer> bow, final String name) {
 
         this.name = name;
         this.bagOfWords = bow;
@@ -29,8 +29,15 @@ public class Document {
         highestWordCount = (double)max;
     }
 
-    public void setFeatureVector(final SparseVector v) { // Takes sparsevector
-        this.featureVector = v;
+    public void generateFeatureVector(final FeatureSpace featureSpace) {
+        featureVector = new SparseVector(featureSpace.size());
+
+        for (String w : getWords()) {
+            if (featureSpace.containsWord(w)) {
+                FeatureSpace.IndexIDF inst = featureSpace.getForWord(w);
+                featureVector.add(inst.index, getTFFor(w) * inst.idf);
+            }
+        }
     }
 
     public SparseVector getFeatureVector() {

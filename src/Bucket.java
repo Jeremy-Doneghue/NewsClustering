@@ -1,5 +1,6 @@
 import no.uib.cipr.matrix.Vector;
 import no.uib.cipr.matrix.sparse.SparseVector;
+import sun.security.krb5.Config;
 
 import java.util.*;
 import java.util.function.Function;
@@ -10,19 +11,23 @@ public class Bucket implements IBucket {
     private final SparseVector clusterVector;
     private final List<Document> documents;
     private final FeatureSpace associatedFeatureSpace;
-    private DocumentClusterer subClusterer;
+    private final ConfigurationContainer config;
+    private final DocumentClusterer subClusterer;
 
     public Bucket(final SparseVector clusterVector, final FeatureSpace associatedFeatureSpace) {
         this.clusterVector = clusterVector;
         this.associatedFeatureSpace = associatedFeatureSpace;
         documents = new ArrayList<>();
+        subClusterer = null;
+        config = null;
     }
 
-    public void initialiseSecondLevel(final ConfigurationContainer config, final int clusterLevel) {
-
-        Document[] docs = documents.toArray(new Document[0]);
-        if (docs.length >= config.numberOf2ndLevelBuckets)
-            subClusterer = new DocumentClusterer(docs, config.secondLevelSimilarityThreshold, config.secondLevelReclusterThreshold, config.numberOf2ndLevelBuckets, clusterLevel);
+    public Bucket(final SparseVector clusterVector, final FeatureSpace associatedFeatureSpace, final ConfigurationContainer config, final int clusterLevel) {
+        this.clusterVector = clusterVector;
+        this.associatedFeatureSpace = associatedFeatureSpace;
+        this.config = config;
+        documents = new ArrayList<>();
+        subClusterer = new DocumentClusterer(config.secondLevelSimilarityThreshold, config.secondLevelReclusterThreshold, config.numberOf2ndLevelBuckets, config.slidingWindowCapacity, clusterLevel);
     }
 
     public double getSimilarityFor(final Document d) {
@@ -34,13 +39,15 @@ public class Bucket implements IBucket {
     @Override
     public void addDocument(final Document d) {
         documents.add(d);
+        if (subClusterer != null) {
+            if (!subClusterer.getHasMadeFirstClustering() && documents.size() > config.numberOf2ndLevelBuckets) {
+                subClusterer.setupClustering(documents);
+            }
+            else if (subClusterer.getHasMadeFirstClustering()) {
+                subClusterer.addDocument(d);
+            }
+        }
 
-        if (subClusterer != null)
-            subClusterer.addDocument(d);
-    }
-
-    public SparseVector getClusterVector() {
-        return clusterVector;
     }
 
     @Override

@@ -1,20 +1,34 @@
+import java.lang.reflect.Array;
 import java.util.*;
 
 public class SlidingWindow<E> extends AbstractCollection<E> {
 
     private final E[] window;
-    private int insertIndex = 0;
+    private final Class<? extends E> c;
 
-    public SlidingWindow(final E[] items) {
-        window = items;
+    private boolean isFull;
+    private int insertIndex;
+
+    @SuppressWarnings("unchecked")
+    public SlidingWindow(Class<? extends E> c, final int capacity) {
+        if (capacity <= 0) {
+            throw new IllegalArgumentException("Must specify a positive capacity");
+        }
+        this.c = c;
+        window = (E[]) Array.newInstance(c, capacity);
+        insertIndex = 0;
+        isFull = false;
     }
 
     @Override
     public boolean add(final E item) {
-        window[insertIndex++] = item;
         if (insertIndex >= window.length) {
             insertIndex = 0;
+            isFull = true;
         }
+
+        window[insertIndex++] = item;
+
         return true;
     }
 
@@ -37,7 +51,11 @@ public class SlidingWindow<E> extends AbstractCollection<E> {
 
     @Override
     public int size() {
-        return window.length;
+        return isFull ? window.length : insertIndex;
+    }
+
+    public boolean isFull() {
+        return isFull;
     }
 
     private class WindowIterator implements Iterator<E> {
